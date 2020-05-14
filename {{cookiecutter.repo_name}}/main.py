@@ -18,9 +18,22 @@ import logging
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('func', type=str)
-    parser.add_argument("-c", "--config", action="extend", nargs="+", type=str)
-    parser.add_argument('-o', '--output_folder', type=str)
+    parser.add_argument(
+        'func', type=str, 
+        help= (
+            "What function to run, given the configuration. "
+            "Choices are train, evaluate, analyze, all, cache, instantiate, resume, "
+            "debug. "
+        )
+    )
+    parser.add_argument(
+        "-c", "--config", nargs="+", type=str,
+        help="List of .gin files containing bindings for relevant functions."
+    )
+    parser.add_argument(
+        '-o', '--output_folder', type=str,
+        help='If using instantiate command, need an output folder to put the compiled .gin config.'
+    )
     args = parser.parse_args()
     return args
 

@@ -4,16 +4,18 @@ This repository contains the code for training many of the models
 in *nussl*. It contains a few extra utilities, such as a simple way
 to schedule jobs with GPUs and recipes for creating datasets.
 
-## Setting up environment
+## Setting up the environment
 
 ```
 conda env create -f conda.yml
 conda activate {{cookiecutter.repo_name}}
 ```
 
-Set the paths appropriately in `env.sh`. Please ensure all paths in `env.sh` are absolute paths. Then `source env.sh`.
+Set the paths appropriately in `env.sh`. Please ensure all paths in `env.sh` are 
+absolute paths. Then `source env.sh`.
 
-If you update the `conda.yml` file to say, add new requirements, update the conda environment after activating it:
+If you update the `conda.yml` file to say, add new requirements, update the conda 
+environment after activating it:
 
 ```
 conda env update -f conda.yml --prune
@@ -29,16 +31,16 @@ way to specify hyperparameters and configuration in a hierarchical and
 reusable fashion. There are 5 main functions whose arguments are all
 configured with gin:
 
-1. `train`: This function will train a model. This needs datasets 
-   (see `wham/wham8k.gin` for an example), and model and training 
-   parameters (see `wham/exp/dpcl.gin` for an example).
-2. `cache`: This function takes the datasets and caches them to the 
-   desired location.
-3. `evaluate`: This function evaluates a separation algorithm on the 
-   test dataset.
-4. `instantiate`: This function instantiates an experiment by compiling a
+1. `instantiate`: This function instantiates an experiment by compiling a
    gin config file on the fly, possibly sweeping across some hyperparameters,
-   and writing it all to an output directory.
+   and writing it all to an output directory. This *must* be called first.
+2. `train`: This function will train a model. This needs datasets 
+   (see `wham/wham8k.gin` for an example), and model and training 
+   parameters (see `wham/exp/chimera.gin` for an example).
+3. `cache`: This function takes the datasets and caches them to the 
+   desired location.
+4. `evaluate`: This function evaluates a separation algorithm on the 
+   test dataset.
 5. `analyze`: This analyzes the experiment after evaluation. Spits out a report
    card with the metrics.
 
@@ -46,24 +48,43 @@ Finally `all` will run `train`, then `evaluate`, then `analyze`.
 
 ### Usage
 
-The `main.py` script takes 3 arguments and 1 positional argument. It takes an
-environment config file (`--environment_config`, `-env`) which sets all the 
+The `main.py` script takes a few arguments. It has the following signature:
+
+```
+usage: main.py [-h] [-c CONFIG [CONFIG ...]] [-o OUTPUT_FOLDER] func
+
+positional arguments:
+  func                  What function to run, given the configuration. Choices
+                        are train, evaluate, analyze, all, cache, instantiate,
+                        resume, debug.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c CONFIG [CONFIG ...], --config CONFIG [CONFIG ...]
+                        List of .gin files containing bindings for relevant
+                        functions.
+  -o OUTPUT_FOLDER, --output_folder OUTPUT_FOLDER
+                        If using instantiate command, need an output folder to
+                        put the compiled .gin config.
+```
+
+The list of config files might first start with an
+environment config file which sets all the 
 machine-specific variables like path to data directories and so on, a 
-data config file (`--data_config`, `-dat`) which describes all of the datasets, 
-and an experiment config file (`--experiment_config`, `-exp`) which describes
+data config file which describes all of the datasets, 
+and an experiment config file which describes
 the model settings, the optimizer, the algorithm settings, and whatever else
 is needed. Generally, you'll want to follow a process like this:
 
 ```
-python main.py --dat [path/to/data.gin] --env [path/to/env.gin] --exp [path/to/exp.gin] cache
+python main.py -c [path/to/data.gin] [path/to/env.gin] [path/to/exp.gin] cache
 ```
 
-This will cache all of the datasets so that things train faster. Now, go and set the key
-that says `cache_populated = False` to `cache_populated = True` in your `data.gin` file.
-Then:
+This will cache all of the datasets so that things train faster. Then instantiate
+a run of this combination of gin files:
 
 ```
-python main.py --dat [path/to/data.gin] --env [path/to/env.gin] --exp [path/to/exp.gin] instantiate
+python main.py instantiate -c [path/to/data.gin] [path/to/env.gin] [path/to/exp.gin] -o wham/exp/out/dpcl
 ```
 
 This will instantiate your experiments into a single config file and place that config
@@ -90,68 +111,48 @@ wham/exp/out/dpcl/run2:clip_value:0.01/config.gin
 Now, you're ready to run experiments. To run, say the first experiment you would do:
 
 ```
-python main.py --exp wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin train
-python main.py --exp wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin evaluate
-python main.py --exp wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin analyze
+python main.py -c wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin train
+python main.py -c wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin evaluate
+python main.py -c wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin analyze
 ```
 
 Or to do all of them in one fell swoop:
 
 ```
-python main.py --exp wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin all
+python main.py -c wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin all
 ```
 
-At the end, you'll see some output like this:
+### Allocating a GPU and job management
+
+You might want to run a few experiments at once, waiting for a GPU to become 
+available and then launching the experiment appropriately. To do this, you
+can use the allocate script, as follows:
 
 ```
-❯ python main.py --exp wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin all
-/Users/prem/miniconda3/envs/nussl-models/lib/python3.7/site-packages/torch/nn/modules/rnn.py:50: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.3 and num_layers=1
-  "num_layers={}".format(dropout, num_layers))
-2020-04-01:02:36:57,921 [train.py:39] SeparationModel(
-  (layers): ModuleDict(
-    (embedding): Embedding(
-      (linear): Linear(in_features=100, out_features=2580, bias=True)
-    )
-    (log_spectrogram): AmplitudeToDB()
-    (normalization): BatchNorm(
-      (batch_norm): BatchNorm1d(1, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
-    )
-    (recurrent_stack): RecurrentStack(
-      (rnn): LSTM(129, 50, batch_first=True, dropout=0.3, bidirectional=True)
-    )
-  )
-)
-Number of parameters: 332982
-2020-04-01:02:36:57,922 [train.py:45] Saving to /Users/prem/Dropbox/research/nussl-models/wham/exp/out/dpcl/run0:clip_value:0.0001
-2020-04-01:02:36:57,924 [engine.py:837] Engine run starting with max_epochs=1.
-2020-04-01:02:36:59,235 [engine.py:939] Epoch[1] Complete. Time taken: 00:00:01
-2020-04-01:02:36:59,236 [engine.py:837] Engine run starting with max_epochs=1.
-2020-04-01:02:36:59,875 [engine.py:939] Epoch[1] Complete. Time taken: 00:00:00
-2020-04-01:02:36:59,876 [engine.py:947] Engine run complete. Time taken 00:00:00
-2020-04-01:02:36:59,907 [trainer.py:340]
+./allocate.py 1 python main.py -c wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin all
+```
 
-EPOCH SUMMARY
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-- Epoch number: 0001 / 0001
-- Training loss:   0.553462
-- Validation loss: 0.552009
-- Epoch took: 00:00:01
-- Time since start: 00:00:01
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Saving to /Users/prem/Dropbox/research/nussl-models/wham/exp/out/dpcl/run0:clip_value:0.0001/checkpoints/best.model.pth.
-Output @ /Users/prem/Dropbox/research/nussl-models/wham/exp/out/dpcl/run0:clip_value:0.0001
+This will allocate 1 GPU for the script, and then run the experiment. If no GPUs are
+available, it will wait till one does become available and then run the experiment.
 
-2020-04-01:02:36:59,911 [engine.py:947] Engine run complete. Time taken 00:00:01
-/Users/prem/miniconda3/envs/nussl-models/lib/python3.7/site-packages/nussl/separation/base/separation_base.py:71: UserWarning: input_audio_signal has no data!
-  warnings.warn('input_audio_signal has no data!')
-/Users/prem/miniconda3/envs/nussl-models/lib/python3.7/site-packages/nussl/core/audio_signal.py:445: UserWarning: Initializing STFT with data that is non-complex. This might lead to weird results!
-  warnings.warn('Initializing STFT with data that is non-complex. '
-100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 5/5 [00:16<00:00,  3.37s/it]
-┌────────────────────┬───────────────────┬────────────────────┐
-│                    │ OVERALL (N = 20)  │                    │
-╞════════════════════╪═══════════════════╪════════════════════╡
-│        SAR         │        SDR        │        SIR         │
-├────────────────────┼───────────────────┼────────────────────┤
-│ 13.487467288970947 │ -5.10146589204669 │ -5.028965532779694 │
-└────────────────────┴───────────────────┴────────────────────┘
+Running and tracking multiple jobs is really easy if you install 
+[task-spooler](http://manpages.ubuntu.com/manpages/xenial/man1/tsp.1.html). To say,
+queue up 3 jobs as above, you can do this:
+
+```
+tsp ./allocate.py 1 python main.py -c wham/exp/out/dpcl/run0:clip_value:0.0001/config.gin all
+tsp ./allocate.py 1 python main.py -c wham/exp/out/dpcl/run1:clip_value:0.001/config.gin all
+tsp ./allocate.py 1 python main.py -c wham/exp/out/dpcl/run2:clip_value:0.01/config.gin all
+```
+
+Run `tsp` to see everything running.
+
+To see the logs of one of the jobs, do `tsp -t [id]`. 
+By default, tsp runs the jobs one at a time. To run 3 jobs at a time, do `tsp -S 3`.
+`tsp -S N` will run `N` jobs at a time.
+Finally, you can easily track all of the logs by running the logs script 
+(you'll need to be in a running tmux session to do this):
+
+```
+./logs.py | sh
 ```
