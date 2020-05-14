@@ -1,0 +1,65 @@
+# Global dataset parameters
+# =========================
+nussl.STFTParams.window_length = 256
+nussl.STFTParams.hop_length = 64
+nussl.STFTParams.window_type = 'sqrt_hann'
+
+# unginify is a function to get around the fact that
+# gin objects can't be pickled.
+stft_params/unginify.kls = @nussl.STFTParams
+stft_params/unginify.kls_name = "nussl.STFTParams"
+
+nussl.datasets.WHAM.stft_params = @stft_params/unginify()
+nussl.datasets.WHAM.sample_rate = 8000
+nussl.datasets.WHAM.root = %WHAM_ROOT
+nussl.datasets.WHAM.mix_folder = 'mix_clean'
+nussl.datasets.WHAM.mode = 'min'
+
+# Dataset transforms for train and val splits
+# ===========================================
+build_transforms.transform_names_and_args = [
+    ('PhaseSensitiveSpectrumApproximation', {}),
+    ('GetAudio', {}),
+    ('MagnitudeWeights', {}),
+    ('ToSeparationModel', {}),
+    ('Cache', {}),
+    ('GetExcerpt', 
+        {
+            'excerpt_length': 400
+        }
+    ),
+    ('GetExcerpt', 
+        {
+            'tf_keys': ['mix_audio', 'source_audio'], 
+            'time_dim': 1,
+            'excerpt_length': 25600
+        }
+    )
+]
+
+# Caching
+# =======
+nussl.datasets.WHAM.cache_populated = True
+cache.num_cache_workers = 40
+cache.batch_size = 40
+
+# Below, macros come from your env.gin.
+#
+# Building train dataset
+# ======================
+train/build_transforms.cache_location = %TRAIN_CACHE
+train/nussl.datasets.WHAM.split = 'tr'
+train/nussl.datasets.WHAM.transform = @train/build_transforms()
+train/build_dataset.dataset_class = @train/nussl.datasets.WHAM
+
+# Building val dataset
+# ====================
+val/build_transforms.cache_location = %VAL_CACHE
+val/nussl.datasets.WHAM.split = 'cv'
+val/nussl.datasets.WHAM.transform = @val/build_transforms()
+val/build_dataset.dataset_class = @val/nussl.datasets.WHAM
+
+# Building test dataset
+# =====================
+test/nussl.datasets.WHAM.split = 'tt'
+test/build_dataset.dataset_class = @test/nussl.datasets.WHAM

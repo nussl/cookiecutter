@@ -1,0 +1,66 @@
+# Global dataset parameters
+# =========================
+nussl.STFTParams.window_length = 512
+nussl.STFTParams.hop_length = 128
+nussl.STFTParams.window_type = 'sqrt_hann'
+
+# unginify is a function to get around the fact that
+# gin objects can't be pickled.
+stft_params/unginify.kls = @nussl.STFTParams
+stft_params/unginify.kls_name = "nussl.STFTParams"
+
+nussl.datasets.Scaper.stft_params = @stft_params/unginify()
+nussl.datasets.MUSDB18.stft_params = @stft_params/unginify()
+nussl.datasets.MUSDB18.folder = %MUSDB_ROOT
+nussl.datasets.MUSDB18.subsets = ['train']
+
+# Dataset transforms for train and val splits
+# ===========================================
+build_transforms.transform_names_and_args = [
+    ('PhaseSensitiveSpectrumApproximation', {}),
+    ('GetAudio', {}),
+    ('MagnitudeWeights', {}),
+    ('ToSeparationModel', {}),
+    ('Cache', {}),
+    ('GetExcerpt', 
+        {
+            'excerpt_length': 400
+        }
+    ),
+    ('GetExcerpt', 
+        {
+            'tf_keys': ['mix_audio', 'source_audio'], 
+            'time_dim': 1,
+            'excerpt_length': 32000
+        }
+    )
+]
+
+# Caching
+# =======
+nussl.datasets.Scaper.cache_populated = True
+cache.num_cache_workers = 40
+cache.batch_size = 40
+
+# Below, macros come from your env.gin.
+#
+# Building train dataset
+# ======================
+train/build_transforms.cache_location = %TRAIN_CACHE
+train/nussl.datasets.Scaper.folder = %TRAIN_FOLDER
+train/nussl.datasets.Scaper.transform = @train/build_transforms()
+train/build_dataset.dataset_class = @train/nussl.datasets.Scaper
+
+# Building val dataset
+# ====================
+val/build_transforms.cache_location = %VAL_CACHE
+val/nussl.datasets.Scaper.folder = %VAL_FOLDER
+val/nussl.datasets.Scaper.transform = @val/build_transforms()
+val/build_dataset.dataset_class = @val/nussl.datasets.Scaper
+
+# Building test dataset
+# =====================
+test/nussl.datasets.MUSDB18.subsets = ['test']
+test/build_dataset.dataset_class = @test/nussl.datasets.MUSDB18
+test/nussl.datasets.MUSDB18.sample_rate = 16000
+test/nussl.datasets.MUSDB18.strict_sample_rate = False

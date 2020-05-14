@@ -1,0 +1,22 @@
+name: {{cookiecutter.repo_name}}
+
+channels:
+  - conda-forge
+  - pytorch
+
+dependencies:
+  - python=3.7
+  - pytorch
+  - ffmpeg
+  - sox
+  - resampy
+  - pip
+  - redis
+  - pip:
+    - scaper
+    - git+git://github.com/nussl/nussl
+    - git+https://github.com/google/gin-config
+    - IPython
+    - ffmpy
+    - p_tqdm
+    - nvgpu
