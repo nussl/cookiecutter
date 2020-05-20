@@ -156,3 +156,8 @@ Finally, you can easily track all of the logs by running the logs script
 ```
 ./logs.py | sh
 ```
+
+## Starter code
+
+To get started with music-based experiments, see [musdb](musdb/README.md). To get 
+started with speech-based experiments, see [wham](wham/README.md).

@@ -1,4 +1,4 @@
-SCENE_DURATION = 10
+SCENE_DURATION = 5.0
 NUM_TRAIN_MIXTURES = 20000
 NUM_VAL_MIXTURES = 5000
 
@@ -12,10 +12,10 @@ mix_with_scaper.event_parameters = {
     'source_file': ('choose', []),
     'source_time': ('uniform', 0, 1000),
     'event_time': ('const', 0),
-    'event_duration': ('const', %SCENE_DURATION),
+    'event_duration': ('const', 5),
     'snr': ('uniform', -5, 5),
-    'pitch_shift': ('const', 0),
-    'time_stretch': ('const', 1)
+    'pitch_shift': ('uniform', -2, 2),
+    'time_stretch': ('uniform', 0.8, 1.2)
 }
 
 mix_with_scaper.coherent = True
