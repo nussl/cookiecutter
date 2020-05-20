@@ -1,0 +1,4 @@
+{
+    "repo_name": "nussl-models",
+    "help1": "\n\nTo complete setup, you'll need to edit the env.gin files in the musdb and wham directories. \n\nPress enter to continue...",
+}
